@@ -282,7 +282,7 @@ const DATA = {
    les stations ensemble une fois le modèle affiché.)
    ===================================================================== */
 const WORLD = { houseModelURL:'', scale:1, pos:[0,0,0], rotY:0, hideBuiltinExterior:false };
-const HACKER = { url:'https://raw.githubusercontent.com/MiawMiaw519/hacker-3d/main/Wrench.glb', scale:0.5, rotY:3.14, pos:[0,5.0,-0.3], anim:null, boneRot:{} };   // boneRot: { "NomOs":[x,y,z] } en radians (ajouté en relatif) pour poser le perso sans animation
+const HACKER = { url:'https://raw.githubusercontent.com/MiawMiaw519/hacker-3d/main/Wrench.glb', scale:0.5, rotY:3.14, pos:[0,5.0,-0.3] };   // .glb DIRECT (CORS) → remplace la silhouette ; ajuste scale/rotY/pos
 
 /* =====================================================================
    THREE.JS — SCÈNE
@@ -1181,20 +1181,6 @@ add(box(13,0.15,24,matFloor), 0, 4.95, -38);
       m.position.set(HACKER.pos[0],HACKER.pos[1],HACKER.pos[2]);
       m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
       fig.visible=false; swivel.add(m);   // masque la silhouette procédurale, garde la rotation finale
-      const clips=gltf.animations||[];
-      const bones=[]; m.traverse(o=>{ if(o.isBone) bones.push(o.name); });
-      console.log('Hacker GLB chargé — '+clips.length+' animation(s) :', clips.map(c=>c.name));
-      console.log('Hacker GLB — '+bones.length+' os (copie cette liste) :', bones);
-      // pose manuelle optionnelle : rotations (radians, en relatif) appliquées à des os nommés → sort du T-pose sans animation
-      if(HACKER.boneRot){ m.traverse(o=>{ if(o.isBone && HACKER.boneRot[o.name]){ const r=HACKER.boneRot[o.name]; o.rotation.x+=r[0]||0; o.rotation.y+=r[1]||0; o.rotation.z+=r[2]||0; } }); }
-      if(clips.length){                    // joue une animation si le modèle en contient (sinon il reste en T-pose)
-        window.__hackerMixer=new THREE.AnimationMixer(m);
-        let clip=null;
-        if(typeof HACKER.anim==='number') clip=clips[HACKER.anim];
-        else if(typeof HACKER.anim==='string') clip=clips.find(c=>c.name===HACKER.anim);
-        if(!clip) clip=clips.find(c=>/idle|sit|assis|type|breath|stand/i.test(c.name))||clips[0];
-        window.__hackerMixer.clipAction(clip).play();
-      }
     }, undefined, e=>console.warn('Hacker GLB:', e));
   }
   // trophée sur le bureau
@@ -1686,7 +1672,6 @@ const clock=new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(),0.05), t=clock.elapsedTime;
-  if(window.__hackerMixer) window.__hackerMixer.update(dt);   // animation du modèle de hacker (si présente)
 
   // lissage indépendant du framerate → déplacement fluide (même ressenti à 60 comme à 144 Hz)
   const sm  = 1 - Math.pow(0.03, dt);   // glisse de la caméra
