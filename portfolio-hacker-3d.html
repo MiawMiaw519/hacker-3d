@@ -282,7 +282,7 @@ const DATA = {
    les stations ensemble une fois le modèle affiché.)
    ===================================================================== */
 const WORLD = { houseModelURL:'', scale:1, pos:[0,0,0], rotY:0, hideBuiltinExterior:false };
-const HACKER = { url:'https://raw.githubusercontent.com/MiawMiaw519/hacker-3d/main/Wrench.glb', scale:0.5, rotY:3.14, pos:[0,5.0,-0.3] };   // .glb DIRECT (CORS) → remplace la silhouette ; ajuste scale/rotY/pos
+const HACKER = { url:'', scale:0.5, rotY:3.14, pos:[0,5.0,-0.3], anim:null, boneRot:{} };   // url vide → silhouette procédurale animée. Pour un .glb externe rigué+animé : remets l'URL
 
 /* =====================================================================
    THREE.JS — SCÈNE
@@ -1104,19 +1104,31 @@ add(box(13,0.15,24,matFloor), 0, 4.95, -38);
     addInteractive(m, 'project', p, p.name, 7, '#00ff66', false, false);
   });
 
-  // SILHOUETTE HACKER améliorée (sweat à capuche + masque) — avant = -z (vers les écrans), révélé en se retournant
+  // HACKER procédural détaillé + ANIMÉ (sweat à capuche, masque, jambes assises) — avant = -z, révélé en se retournant
   const cloth =new THREE.MeshStandardMaterial({color:0x0c1019, roughness:.9,  metalness:.05, emissive:0x05221a, emissiveIntensity:.13}); // sweat
   const clothD=new THREE.MeshStandardMaterial({color:0x070a12, roughness:.96, metalness:.04});                                           // plis / ombres
-  const dark  =new THREE.MeshStandardMaterial({color:0x02040a, roughness:1});                                                            // gants / intérieur capuche
+  const pants =new THREE.MeshStandardMaterial({color:0x0a0d16, roughness:.92, metalness:.04});                                           // pantalon
+  const dark  =new THREE.MeshStandardMaterial({color:0x02040a, roughness:1});                                                            // gants / intérieur / chaussures
   const metalS=new THREE.MeshStandardMaterial({color:0x0a0c12, roughness:.45, metalness:.6, emissive:COL.cyan, emissiveIntensity:.25});  // zip / ferrures
+  const trimMat=new THREE.MeshStandardMaterial({color:0x000000, emissive:COL.cyan, emissiveIntensity:1.7});                              // liserés néon
   const fig=new THREE.Group();
 
-  // buste : sweat à capuche
+  // jambes (assis) : cuisses vers l'avant + tibias + chaussures à semelle néon
+  [-1,1].forEach(side=>{
+    const thigh=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.13,0.56,12), pants); thigh.position.set(0.18*side,0.15,-0.32); thigh.rotation.x=-1.4; fig.add(thigh);
+    const knee =new THREE.Mesh(new THREE.SphereGeometry(0.14,12,12), pants); knee.position.set(0.18*side,0.12,-0.6); fig.add(knee);
+    const shin =new THREE.Mesh(new THREE.CylinderGeometry(0.115,0.1,0.36,12), pants); shin.position.set(0.18*side,-0.04,-0.575); shin.rotation.x=0.12; fig.add(shin);
+    const shoe =new THREE.Mesh(new THREE.BoxGeometry(0.16,0.1,0.3), dark); shoe.position.set(0.18*side,-0.2,-0.46); fig.add(shoe);
+    const sole =new THREE.Mesh(new THREE.BoxGeometry(0.17,0.035,0.32), trimMat); sole.position.set(0.18*side,-0.25,-0.45); fig.add(sole);
+  });
+
+  // buste : sweat à capuche (+ liseré néon)
   const hips =new THREE.Mesh(new THREE.BoxGeometry(0.58,0.32,0.48), cloth); hips.position.set(0,0.2,0); fig.add(hips);
   const torso=new THREE.Mesh(new THREE.CylinderGeometry(0.39,0.45,0.95,20), cloth); torso.position.set(0,0.82,-0.04); torso.rotation.x=0.12; fig.add(torso);
   const hem  =new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.44,0.13,20), clothD); hem.position.set(0,0.37,-0.02); fig.add(hem);                       // ourlet côtelé
   const pocket=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.24,0.14), clothD); pocket.position.set(0,0.6,-0.34); pocket.rotation.x=0.06; fig.add(pocket); // poche kangourou
   const zip  =new THREE.Mesh(new THREE.BoxGeometry(0.025,0.72,0.02), metalS); zip.position.set(0,0.8,-0.44); zip.rotation.x=0.12; fig.add(zip);          // fermeture
+  const trimHem=new THREE.Mesh(new THREE.TorusGeometry(0.45,0.012,8,28), trimMat); trimHem.position.set(0,0.44,-0.02); trimHem.rotation.x=Math.PI/2; fig.add(trimHem);
 
   // épaules + deltoïdes
   const sh=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.96,16), cloth); sh.rotation.z=Math.PI/2; sh.position.set(0,1.26,-0.1); fig.add(sh);
@@ -1128,33 +1140,35 @@ add(box(13,0.15,24,matFloor), 0, 4.95, -38);
     const tip =new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.05,8), metalS);   tip.position.set(0.08*d,0.99,-0.35); fig.add(tip);
   });
 
-  // cou + tête
+  // cou + TÊTE (groupe animé : léger balancement)
   const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.13,0.16,12), dark); neck.position.set(0,1.42,-0.12); fig.add(neck);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(0.2,20,20), dark); head.position.set(0,1.6,-0.15); fig.add(head);
-
-  // capuche : calotte + drapé arrière + bord d'ouverture autour du visage
-  const crown=new THREE.Mesh(new THREE.SphereGeometry(0.3,24,24, 0,Math.PI*2, 0,Math.PI*0.6), cloth); crown.position.set(0,1.66,-0.04); crown.rotation.x=-0.16; fig.add(crown);
-  const drape=new THREE.Mesh(new THREE.ConeGeometry(0.27,0.55,18,1,true), cloth); drape.position.set(0,1.48,0.16); drape.rotation.x=2.0; fig.add(drape);
-  const brim =new THREE.Mesh(new THREE.TorusGeometry(0.235,0.07,12,26), clothD); brim.position.set(0,1.62,-0.24); brim.rotation.x=1.22; fig.add(brim);
-
-  // masque de hacker (pâle, visière néon) — révélé quand il se retourne
+  const head=new THREE.Group(); head.position.set(0,1.6,-0.15); fig.add(head);
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(0.2,20,20), dark));
+  // capuche (relative à la tête)
+  const crown=new THREE.Mesh(new THREE.SphereGeometry(0.3,24,24, 0,Math.PI*2, 0,Math.PI*0.6), cloth); crown.position.set(0,0.06,0.11); crown.rotation.x=-0.16; head.add(crown);
+  const drape=new THREE.Mesh(new THREE.ConeGeometry(0.27,0.55,18,1,true), cloth); drape.position.set(0,-0.12,0.31); drape.rotation.x=2.0; head.add(drape);
+  const brim =new THREE.Mesh(new THREE.TorusGeometry(0.235,0.07,12,26), clothD); brim.position.set(0,0.02,-0.09); brim.rotation.x=1.22; head.add(brim);
+  // masque (pâle + visière néon)
   const maskMat=new THREE.MeshStandardMaterial({color:0xdbe0e8, roughness:.4, metalness:.2, emissive:0x0e1218, emissiveIntensity:.18});
-  const maskShell=new THREE.Mesh(new THREE.SphereGeometry(0.19,22,22), maskMat); maskShell.scale.set(1.0,1.2,0.58); maskShell.position.set(0,1.6,-0.3); fig.add(maskShell);
-  const seam=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.32,0.02), new THREE.MeshStandardMaterial({color:0,emissive:COL.cyan,emissiveIntensity:1.6})); seam.position.set(0,1.6,-0.42); fig.add(seam);
+  const maskShell=new THREE.Mesh(new THREE.SphereGeometry(0.19,22,22), maskMat); maskShell.scale.set(1.0,1.2,0.58); maskShell.position.set(0,0.0,-0.15); head.add(maskShell);
+  const seam=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.32,0.02), new THREE.MeshStandardMaterial({color:0,emissive:COL.cyan,emissiveIntensity:1.8})); seam.position.set(0,0.0,-0.27); head.add(seam);
   const socketMat=new THREE.MeshStandardMaterial({color:0x04060c, roughness:1});
-  [-1,1].forEach(d=>{ const s=new THREE.Mesh(new THREE.SphereGeometry(0.058,12,12), socketMat); s.scale.set(1.35,0.85,0.7); s.position.set(0.072*d,1.64,-0.4); fig.add(s); });
-  const eyeMat=new THREE.MeshStandardMaterial({color:0,emissive:COL.green,emissiveIntensity:2.9});
-  [-1,1].forEach(d=>{ const e=new THREE.Mesh(new THREE.SphereGeometry(0.03,8,8),eyeMat); e.position.set(0.072*d,1.64,-0.42); fig.add(e); });
+  [-1,1].forEach(d=>{ const s=new THREE.Mesh(new THREE.SphereGeometry(0.058,12,12), socketMat); s.scale.set(1.35,0.85,0.7); s.position.set(0.072*d,0.04,-0.25); head.add(s); });
+  const eyeMat=new THREE.MeshStandardMaterial({color:0,emissive:COL.green,emissiveIntensity:3.0});
+  [-1,1].forEach(d=>{ const e=new THREE.Mesh(new THREE.SphereGeometry(0.03,8,8),eyeMat); e.position.set(0.072*d,0.04,-0.27); head.add(e); });
   const grilleMat=new THREE.MeshStandardMaterial({color:0x05070d, roughness:1, emissive:COL.green, emissiveIntensity:.35});
-  for(let k=-2;k<=2;k++){ const bar=new THREE.Mesh(new THREE.BoxGeometry(0.015,0.055,0.02), grilleMat); bar.position.set(k*0.03,1.5,-0.42); fig.add(bar); }
+  for(let k=-2;k<=2;k++){ const bar=new THREE.Mesh(new THREE.BoxGeometry(0.015,0.055,0.02), grilleMat); bar.position.set(k*0.03,-0.1,-0.27); head.add(bar); }
 
-  // bras + avant-bras + mains gantées (avec doigts) vers le clavier
+  // bras : épaule fixe + avant-bras articulé (groupe pivotant ≈ coude) pour animer la frappe
+  const forearms=[];
   function arm(side){
     const up=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.095,0.46,12), cloth); up.position.set(0.4*side,1.06,-0.04); up.rotation.x=-0.5; up.rotation.z=0.15*side; fig.add(up);
-    const fo=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.07,0.5,12), cloth); fo.position.set(0.42*side,0.86,-0.42); fo.rotation.x=-1.18; fig.add(fo);
-    const palm=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.06,0.17), dark); palm.position.set(0.42*side,0.78,-0.66); palm.rotation.x=-0.18; fig.add(palm);
-    for(let f=0;f<4;f++){ const fg=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.045,0.1), dark); fg.position.set(0.42*side-0.048+f*0.032,0.755,-0.745); fg.rotation.x=0.28; fig.add(fg); }
-    const thumb=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.045,0.06), dark); thumb.position.set(0.42*side+0.085*side,0.77,-0.66); fig.add(thumb);
+    const g=new THREE.Group(); g.position.set(0.42*side,0.98,-0.26); fig.add(g);
+    const fo=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.07,0.5,12), cloth); fo.position.set(0,-0.12,-0.16); fo.rotation.x=-1.18; g.add(fo);
+    const palm=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.06,0.17), dark); palm.position.set(0,-0.2,-0.4); palm.rotation.x=-0.18; g.add(palm);
+    for(let f=0;f<4;f++){ const fg=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.045,0.1), dark); fg.position.set(-0.048+f*0.032,-0.225,-0.485); fg.rotation.x=0.28; g.add(fg); }
+    const thumb=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.045,0.06), dark); thumb.position.set(0.085*side,-0.21,-0.4); g.add(thumb);
+    g.userData.base=g.rotation.x; forearms.push(g);
   }
   arm(-1); arm(1);
 
@@ -1162,6 +1176,9 @@ add(box(13,0.15,24,matFloor), 0, 4.95, -38);
   const glyph=new THREE.Mesh(new THREE.PlaneGeometry(0.24,0.24),
     new THREE.MeshStandardMaterial({color:0, emissive:COL.green, emissiveIntensity:1.0, transparent:true, opacity:.85}));
   glyph.position.set(0,1.02,0.34); glyph.rotation.y=Math.PI; fig.add(glyph);
+
+  // références pour l'animation (respiration + frappe + tête)
+  window.__figAnim={ torso, head, forearms, baseTorsoY:torso.position.y };
   // groupe pivotant (fauteuil + occupant) : tourne autour de l'axe de la chaise
   const swivel=new THREE.Group(); swivel.position.set(0,0,-46.5); scene.add(swivel); window.__hacker=swivel;
   fig.position.set(0,5.18,-0.4); swivel.add(fig);   // monde z = -46.5 + (-0.4) = -46.9 (inchangé)
@@ -1181,6 +1198,20 @@ add(box(13,0.15,24,matFloor), 0, 4.95, -38);
       m.position.set(HACKER.pos[0],HACKER.pos[1],HACKER.pos[2]);
       m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
       fig.visible=false; swivel.add(m);   // masque la silhouette procédurale, garde la rotation finale
+      const clips=gltf.animations||[];
+      const bones=[]; m.traverse(o=>{ if(o.isBone) bones.push(o.name); });
+      console.log('Hacker GLB chargé — '+clips.length+' animation(s) :', clips.map(c=>c.name));
+      console.log('Hacker GLB — '+bones.length+' os (copie cette liste) :', bones);
+      // pose manuelle optionnelle : rotations (radians, en relatif) appliquées à des os nommés → sort du T-pose sans animation
+      if(HACKER.boneRot){ m.traverse(o=>{ if(o.isBone && HACKER.boneRot[o.name]){ const r=HACKER.boneRot[o.name]; o.rotation.x+=r[0]||0; o.rotation.y+=r[1]||0; o.rotation.z+=r[2]||0; } }); }
+      if(clips.length){                    // joue une animation si le modèle en contient (sinon il reste en T-pose)
+        window.__hackerMixer=new THREE.AnimationMixer(m);
+        let clip=null;
+        if(typeof HACKER.anim==='number') clip=clips[HACKER.anim];
+        else if(typeof HACKER.anim==='string') clip=clips.find(c=>c.name===HACKER.anim);
+        if(!clip) clip=clips.find(c=>/idle|sit|assis|type|breath|stand/i.test(c.name))||clips[0];
+        window.__hackerMixer.clipAction(clip).play();
+      }
     }, undefined, e=>console.warn('Hacker GLB:', e));
   }
   // trophée sur le bureau
@@ -1672,6 +1703,7 @@ const clock=new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(),0.05), t=clock.elapsedTime;
+  if(window.__hackerMixer) window.__hackerMixer.update(dt);   // animation du modèle de hacker (si présente)
 
   // lissage indépendant du framerate → déplacement fluide (même ressenti à 60 comme à 144 Hz)
   const sm  = 1 - Math.pow(0.03, dt);   // glisse de la caméra
@@ -1724,6 +1756,13 @@ function animate(){
   // le hacker se retourne vers toi à la toute fin (révèle le masque)
   if(window.__hacker){ const x=clamp((ct-0.93)/0.06,0,1); window.__hacker.rotation.y = (x*x*(3-2*x))*Math.PI;
     if(bootDone && x>0.04 && !window.__hackerTurned){ window.__hackerTurned=true; if(typeof glitchSound==='function') glitchSound(); } }
+
+  // idle du hacker procédural : respiration + frappe au clavier + léger balancement de tête
+  if(window.__figAnim){ const A=window.__figAnim;
+    if(A.torso){ A.torso.scale.y = 1 + Math.sin(t*1.6)*0.02; A.torso.position.y = A.baseTorsoY + Math.sin(t*1.6)*0.01; }
+    if(A.head){ A.head.rotation.x = Math.sin(t*0.9)*0.04; A.head.rotation.z = Math.sin(t*0.6)*0.02; }
+    if(A.forearms){ A.forearms.forEach((g,i)=>{ g.rotation.x = g.userData.base + Math.max(0,Math.sin(t*9 + i*1.9))*0.09; }); }
+  }
 
   // changement de secteur → glitch + son
   if(room.n!==lastRoom){
